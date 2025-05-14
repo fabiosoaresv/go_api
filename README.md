@@ -85,6 +85,32 @@ idades := map[string]int{
     "Fabio": 28,
     "João":  30,
 }
+
+# Delete
+delete(idades, "Fabio")
+
+idades := map[int]string{
+    28: "Fabio",
+    30:  "Rafael",
+}
+
+idades[25] = "Maria"
+
+# Delete
+delete(idades, "Fabio")
+delete(idades, 25)
+
+# Hash de Struct
+type Pessoa struct {
+    Nome string
+    Idade int
+}
+
+pessoas := []Pessoa{
+		{Nome: "Fabio", Idade: 28},
+		{Nome: "Rafael", Idade: 30},
+}
+
 ```
 
 ## Goroutine
