@@ -30,6 +30,11 @@ print variavel -> imprime a variável
 go run cmd/server/main.go
 ```
 
+# Request
+```bash
+curl --location 'http://localhost:8080/forecast/60449'
+```
+
 # Config
 ```bash
 # No arquivo go.mod você precisa apontar quem é o seu projeto, se for local, só definir o mesmo nome
@@ -302,6 +307,88 @@ func main() {
 }
 ```
 
+## Exemplo de captura de variável direto no goroutine
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+func main() {
+	var wg sync.WaitGroup
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		// Passamos i como parâmetro para evitar captura de variável compartilhada pela goroutine.
+		go func(n int) {
+			defer wg.Done()
+			fmt.Println(n)
+		}(i) // Isso garante que cada goroutine use o valor correto de `i`.
+	}
+	wg.Wait()
+}
+```
+
+## Exemplo de deadlock sem buffer / goroutine
+```go
+package main
+
+func main() {
+	// Se não usarmos um buffer ou uma goroutine para fazer a leitura,
+	// esta linha causaria deadlock. Com buffer de 1, a escrita não bloqueia.
+	ch := make(chan int, 1)
+	ch <- 1
+
+	// Outra alternativa seria usar uma goroutine para fazer a escrita,
+	// o que também evita o deadlock, mesmo sem buffer:
+	// go func() {
+	// 	ch <- 1
+	// }()
+
+	// Aqui o canal está sendo lido. Sempre que um canal recebe um valor,
+	// alguém precisa ler esse valor, senão o programa pode travar (deadlock).
+	// <-ch
+}
+```
+
+```go
+package main
+
+func main() {
+	// Criamos um canal sem buffer (unbuffered), do tipo int.
+	ch := make(chan int)
+
+	// Iniciamos uma goroutine que envia o valor 1 para o canal.
+	// Como o canal é sem buffer, o envio irá bloquear até que alguém esteja lendo o valor.
+	go func() {
+		ch <- 1
+	}()
+
+	// Aqui fazemos a leitura do canal.
+	// Isso desbloqueia a goroutine acima, permitindo que o valor seja enviado.
+	<-ch
+}
+```
+
+## Exemplo de ponteiro nulo
+```go
+package main
+
+import "fmt"
+
+type User struct {
+	Name string
+}
+
+func main() {
+	var user *User
+	// Aqui precisamos atribuir o valor do User
+	// user = &User{Name: "John Doe"}
+	fmt.Println(user.Name) // panic: invalid memory address
+}
+```
+
 ## Marmota (_)
 Utilizado para ignorar valores que não vou usar, exemplo
 ```go
@@ -323,6 +410,7 @@ var mu sync.Mutex
 func increment(wg *sync.WaitGroup) {
     defer wg.Done()
     for i := 0; i < 1000; i++ {
+		// Mutex garante acesso exclusivo à variável `counter` entre goroutines, evitando race conditions.
         mu.Lock()
         counter++
         mu.Unlock()
@@ -352,3 +440,34 @@ go run main.go
   func sum(n1 int, n2 int) (int, string){
     return n1 + n2, "fabio"
   }
+
+TODO:
+1. Rate Limiter com Goroutines
+Implemente um rate limiter simples em Go que permita até 5 requisições por segundo. Use goroutines e channels para simular múltiplas requisições concorrentes.
+
+2. LRU Cache
+Implemente uma estrutura de LRU Cache em Go com complexidade O(1) para as operações Get e Put.
+
+3. Worker Pool
+Crie um sistema de worker pool em Go que recebe uma fila de tarefas e as distribui entre 3 workers concorrentes, garantindo que todas sejam processadas.
+
+4. Criptografia Simples com AES
+Implemente uma função para criptografar e descriptografar strings usando AES-256 em modo CBC, com uma chave fixa (hardcoded para fins de teste).
+
+5. Validador de CPF com Goroutines
+Escreva uma função que recebe uma lista de CPFs (strings) e valida quais são válidos, utilizando goroutines para processar a lista em paralelo.
+
+6. Sistema de Autorização Simples
+Implemente uma API REST com dois endpoints: /login e /resource, usando JWT para autenticação e autorização, simulando um escopo simples de permissões.
+
+7. Consistência Eventual com Retry
+Simule uma operação em um sistema distribuído onde uma função process() falha 30% das vezes. Implemente uma lógica de retry exponencial até o sucesso ou timeout de 5 tentativas.
+
+8. Parser de Logs com Filtros Dinâmicos
+Implemente um parser que leia logs no formato JSON de um arquivo, e filtre por campos dinâmicos passados via linha de comando (por exemplo: --level=ERROR --user=1234).
+
+9. Sistema de Filas Prioritárias
+Implemente um sistema de fila de mensagens com prioridade, onde mensagens com prioridade mais alta são processadas antes. Use heap como estrutura base.
+
+10. Função de Hash Customizada
+Implemente uma função que gere um hash determinístico de uma string usando SHA256, mas com um "salt" embutido que depende da hora atual truncada em minutos (para fins de expiração curta).
