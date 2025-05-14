@@ -126,7 +126,8 @@ import (
 
 // passamos como parâmetro o ponteiro do WaitGroup na função
 func worker(id int, jobs <-chan int, results chan<- int, wg *sync.WaitGroup) {
-  // indica que a goroutine terminou. Por convenção, sempre que usamos WaitGroup, chamamos Done com defer no início da função.	defer wg.Done()
+  // indica que a goroutine terminou. Por convenção, sempre que usamos WaitGroup, chamamos Done com defer no início da função.
+	defer wg.Done()
 	for j := range jobs {
 		results <- j * 2
 	}
@@ -171,7 +172,7 @@ func main() {
 | **Exemplo comum** | Incrementar uma variável com segurança     | Esperar todas as goroutines salvarem no banco |
 | **Métodos**       | `.Lock()` e `.Unlock()`                    | `.Add()`, `.Done()`, `.Wait()`                |
 
-## Exemplo
+## Exemplo de Wait Group
 ```go
 var wg sync.WaitGroup
 
@@ -190,7 +191,36 @@ go func() {
 
 wg.Wait() // espera as duas goroutines finalizarem
 fmt.Println("Todas as goroutines terminaram")
+```
 
+## Exemplo Race Condition com Mutex
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+func main() {
+	var counter int
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	for i := 0; i < 1000; i++ {
+		wg.Add(1)
+		go func() {
+      // Usamos o Mutex para evitar condição de corrida ao acessar a variável compartilhada
+			mu.Lock() // bloqueia o acesso para garantir exclusividade
+			counter++  // região crítica: leitura/escrita da variável compartilhada
+			mu.Unlock() // libera o acesso para outras goroutines
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+	fmt.Println("Counter:", counter)
+}
 ```
 
 ## Exemplo de erro de parser
@@ -274,36 +304,6 @@ func main() {
 		return
 	}
 	fmt.Println("Arquivo criado com sucesso.")
-}
-```
-
-## Exemplo Race Condition
-```go
-package main
-
-import (
-	"fmt"
-	"sync"
-)
-
-func main() {
-	var counter int
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-
-	for i := 0; i < 1000; i++ {
-		wg.Add(1)
-		go func() {
-      // Usamos o Mutex para evitar condição de corrida ao acessar a variável compartilhada
-			mu.Lock() // bloqueia o acesso para garantir exclusividade
-			counter++  // região crítica: leitura/escrita da variável compartilhada
-			mu.Unlock() // libera o acesso para outras goroutines
-			wg.Done()
-		}()
-	}
-
-	wg.Wait()
-	fmt.Println("Counter:", counter)
 }
 ```
 
@@ -394,52 +394,6 @@ Utilizado para ignorar valores que não vou usar, exemplo
 ```go
 res, _ := dividir(10, 2) // ignora o erro
 ```
-
-## Testar código
-```go
-package main
-
-import (
-    "fmt"
-    "sync"
-)
-
-var counter int
-var mu sync.Mutex
-
-func increment(wg *sync.WaitGroup) {
-    defer wg.Done()
-    for i := 0; i < 1000; i++ {
-		// Mutex garante acesso exclusivo à variável `counter` entre goroutines, evitando race conditions.
-        mu.Lock()
-        counter++
-        mu.Unlock()
-    }
-}
-
-func main() {
-    var wg sync.WaitGroup
-
-    // Lançando 10 goroutines para incrementar o contador
-    for i := 0; i < 10; i++ {
-        wg.Add(1)
-        go increment(&wg)
-    }
-
-    // Aguarda todas as goroutines terminarem
-    wg.Wait()
-
-    fmt.Println("Valor final do contador:", counter)
-}
-
-go run main.go
-```
-
-
-
-  func sum(n1 int, n2 int) (int, string){
-    return n1 + n2, "fabio"
-  }
 
 TODO:
 1. Rate Limiter com Goroutines
